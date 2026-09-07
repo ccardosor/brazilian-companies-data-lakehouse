@@ -1,0 +1,25 @@
+.env
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Raw data is too large for Git and should live in local storage or object storage.
+downloads/
+*.zip
+*.parquet
+
+# One-off local data validation/profiling scripts.
+validate_cnpj_extract.py
+profile_cnpj_sample.py
+inspect_partitions.py
+
+# Local editor/system files.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
