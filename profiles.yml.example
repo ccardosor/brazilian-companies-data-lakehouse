@@ -1,0 +1,7 @@
+brazilian_companies_data_lakehouse:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: downloads/lakehouse/dbt.duckdb
+      threads: 4

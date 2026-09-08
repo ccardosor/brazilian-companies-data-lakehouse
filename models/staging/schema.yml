@@ -1,0 +1,111 @@
+version: 2
+
+models:
+  - name: stg_cnpj_empresas
+    description: Empresas do CNPJ com capital social convertido para decimal.
+    columns:
+      - name: ano_mes
+        tests:
+          - not_null
+      - name: cnpj_basico
+        tests:
+          - not_null
+      - name: porte_empresa
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["00", "01", "03", "05"]
+
+  - name: stg_cnpj_estabelecimentos
+    description: Estabelecimentos do CNPJ com CNPJ completo e datas convertidas.
+    columns:
+      - name: ano_mes
+        tests:
+          - not_null
+      - name: cnpj_basico
+        tests:
+          - not_null
+      - name: cnpj_completo
+        tests:
+          - not_null
+      - name: identificador_matriz_filial
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["1", "2"]
+      - name: situacao_cadastral
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["01", "02", "03", "04", "08"]
+
+  - name: stg_cnpj_simples
+    description: Opcoes pelo Simples Nacional e MEI.
+    columns:
+      - name: ano_mes
+        tests:
+          - not_null
+      - name: cnpj_basico
+        tests:
+          - not_null
+      - name: opcao_simples
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["S", "N"]
+      - name: opcao_mei
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["S", "N"]
+
+  - name: stg_cnpj_socios
+    description: Socios vinculados ao CNPJ basico.
+    columns:
+      - name: ano_mes
+        tests:
+          - not_null
+      - name: cnpj_basico
+        tests:
+          - not_null
+      - name: identificador_socio
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["1", "2", "3"]
+
+  - name: stg_cnpj_paises
+    columns:
+      - name: codigo_pais
+        tests:
+          - not_null
+
+  - name: stg_cnpj_municipios
+    columns:
+      - name: codigo_municipio
+        tests:
+          - not_null
+
+  - name: stg_cnpj_qualificacoes
+    columns:
+      - name: codigo_qualificacao
+        tests:
+          - not_null
+
+  - name: stg_cnpj_naturezas_juridicas
+    columns:
+      - name: codigo_natureza_juridica
+        tests:
+          - not_null
+
+  - name: stg_cnpj_cnaes
+    columns:
+      - name: codigo_cnae
+        tests:
+          - not_null
+
+  - name: stg_cnpj_motivos
+    columns:
+      - name: codigo_motivo
+        tests:
+          - not_null

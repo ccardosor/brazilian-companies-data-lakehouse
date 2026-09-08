@@ -7,6 +7,11 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+target/
+dbt_packages/
+logs/
+*.duckdb
+*.duckdb.wal
 
 # Raw data is too large for Git and should live in local storage or object storage.
 /docs/

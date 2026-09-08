@@ -1,0 +1,40 @@
+with fonte as (
+    select * from {{ raw_cnpj('estabelecimentos') }}
+)
+
+select
+    cast(ano_mes as varchar) as ano_mes,
+    cnpj_basico,
+    cnpj_ordem,
+    cnpj_dv,
+    cnpj_basico || cnpj_ordem || cnpj_dv as cnpj_completo,
+    identificador_matriz_filial,
+    nome_fantasia,
+    situacao_cadastral,
+    {{ data_receita('data_situacao_cadastral') }} as data_situacao_cadastral,
+    motivo_situacao_cadastral,
+    nome_cidade_exterior,
+    pais,
+    {{ data_receita('data_inicio_atividade') }} as data_inicio_atividade,
+    cnae_fiscal_principal,
+    cnae_fiscal_secundaria,
+    tipo_logradouro,
+    logradouro,
+    numero,
+    complemento,
+    bairro,
+    cep,
+    uf,
+    municipio,
+    ddd_1,
+    telefone_1,
+    ddd_2,
+    telefone_2,
+    ddd_fax,
+    fax,
+    correio_eletronico,
+    situacao_especial,
+    {{ data_receita('data_situacao_especial') }} as data_situacao_especial,
+    arquivo_origem,
+    data_processamento_utc
+from fonte

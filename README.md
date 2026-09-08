@@ -47,15 +47,21 @@ Os arquivos originais sao CSV sem cabecalho, separados por `;`, com campos entre
 ```text
 .
 |-- cnpj_pipeline/
+|   |-- layouts.py     # layouts dos CSVs oficiais da Receita
+|   |-- parquet.py     # conversao local CSV -> Parquet
 |   |-- source.py      # listagem e download no WebDAV da Receita
 |   |-- sinks.py       # destinos local e S3
 |   |-- pipeline.py    # orquestracao da ingestao mensal
 |   `-- cli.py         # CLI unica para local ou S3
+|-- macros/            # macros dbt para ler Parquet local
+|-- models/staging/    # modelos staging iniciais em dbt-duckdb
 |-- cnpj_monthly_download_local.py
 |-- cnpj_monthly_download.py
 |-- tests/
 |   `-- fixtures/
 |       `-- cnpj/
+|-- dbt_project.yml
+|-- profiles.yml.example
 |-- docs/
 |   `-- cnpj_validation_2026_08.md
 |-- AGENTS.md
@@ -103,6 +109,45 @@ Atalho equivalente:
 ```bash
 python cnpj_monthly_download.py
 ```
+
+Conversao local dos CSVs extraidos para Parquet:
+
+```bash
+python -m cnpj_pipeline.cli parquet-local --month 2026-08
+```
+
+Por padrao, o comando le `downloads/2026-08_unzipped` e grava em:
+
+```text
+downloads/lakehouse/raw/cnpj/<entidade>/ano_mes=2026-08/<arquivo>.parquet
+```
+
+Tambem e possivel informar os caminhos explicitamente:
+
+```bash
+python -m cnpj_pipeline.cli parquet-local \
+  --month 2026-08 \
+  --input-dir ./downloads/2026-08_unzipped \
+  --lakehouse-dir ./downloads/lakehouse
+```
+
+## dbt local com DuckDB
+
+Copie o exemplo de profile para o diretorio esperado pelo dbt ou informe o caminho na execucao:
+
+```bash
+mkdir -p ~/.dbt
+cp profiles.yml.example ~/.dbt/profiles.yml
+```
+
+Depois de converter os CSVs para Parquet, rode:
+
+```bash
+dbt run
+dbt test
+```
+
+Os modelos staging leem os Parquets diretamente de `downloads/lakehouse/raw/cnpj`, usando particoes Hive `ano_mes=<YYYY-MM>`.
 
 ## Convencoes de trabalho
 
@@ -155,9 +200,10 @@ Principais conclusoes:
 
 ## Proximas etapas
 
-1. Converter a camada raw CSV para Parquet particionado.
-2. Criar projeto dbt com sources, staging e marts.
-3. Adicionar testes dbt de chaves, dominios, relacionamentos e accepted values.
-4. Criar snapshots SCD Tipo 2 depois de carregar pelo menos duas competencias.
-5. Criar DAGs no Airflow para download, validacao, carga raw, transformacao dbt e publicacao de artefatos.
-6. Subir a arquitetura para nuvem usando S3/GCS/ADLS e um warehouse analitico.
+1. Rodar a conversao completa da competencia 2026-08 para Parquet local.
+2. Executar `dbt run` e `dbt test` sobre a base local.
+3. Expandir os testes dbt de chaves, dominios e relacionamentos.
+4. Construir marts dimensionais.
+5. Criar snapshots SCD Tipo 2 depois de carregar pelo menos duas competencias.
+6. Criar DAGs no Airflow para download, validacao, carga raw, transformacao dbt e publicacao de artefatos.
+7. Decidir depois a estrategia de hospedagem em nuvem e object storage.

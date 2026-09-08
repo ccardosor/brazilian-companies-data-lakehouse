@@ -1,0 +1,20 @@
+name: brazilian_companies_data_lakehouse
+version: "0.1.0"
+config-version: 2
+
+profile: brazilian_companies_data_lakehouse
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+vars:
+  cnpj_raw_path: "downloads/lakehouse/raw/cnpj"
+
+models:
+  brazilian_companies_data_lakehouse:
+    staging:
+      +materialized: view
