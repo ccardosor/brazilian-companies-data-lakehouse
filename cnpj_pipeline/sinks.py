@@ -58,12 +58,17 @@ class S3Sink:
         prefix_root: str,
         region_name: str | None = None,
         endpoint_url: str | None = None,
+        client=None,
     ) -> None:
-        import boto3
-
         self.bucket_name = bucket_name
         self.prefix_root = prefix_root.strip("/")
-        self.client = boto3.client(
+        self.client = client or self._build_client(region_name, endpoint_url)
+
+    @staticmethod
+    def _build_client(region_name: str | None, endpoint_url: str | None):
+        import boto3
+
+        return boto3.client(
             "s3",
             region_name=region_name,
             endpoint_url=endpoint_url,
@@ -118,10 +123,10 @@ class S3Sink:
         try:
             self.client.head_object(Bucket=self.bucket_name, Key=key)
             return True
-        except self.client.exceptions.ClientError as error:
-            status_code = error.response.get("ResponseMetadata", {}).get(
-                "HTTPStatusCode"
-            )
-            if status_code == 404:
+        except Exception as error:
+            response = getattr(error, "response", {})
+            status_code = response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            error_code = response.get("Error", {}).get("Code")
+            if status_code == 404 or error_code in {"404", "NoSuchKey", "NotFound"}:
                 return False
             raise

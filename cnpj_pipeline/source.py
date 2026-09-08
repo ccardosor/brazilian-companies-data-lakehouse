@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urljoin
-
-import requests
 
 
 @dataclass(frozen=True)
@@ -19,9 +18,16 @@ class RemoteItem:
 class ReceitaCnpjSource:
     """Lista e faz o download dos dados de CNPJ do endpoint WebDAV Público."""
 
-    def __init__(self, base_url: str, timeout: int = 60) -> None:
+    def __init__(self, base_url: str, timeout: int = 60, session=None) -> None:
         self.base_url = base_url if base_url.endswith("/") else f"{base_url}/"
         self.timeout = timeout
+        self.session = session or self._build_session()
+
+    @staticmethod
+    def _build_session():
+        import requests
+
+        return requests
 
     def list_directory(self, path: str = "") -> list[RemoteItem]:
         url = urljoin(self.base_url, path)
@@ -34,7 +40,7 @@ class ReceitaCnpjSource:
   </d:prop>
 </d:propfind>"""
 
-        response = requests.request(
+        response = self.session.request(
             "PROPFIND", url, headers=headers, data=body, timeout=self.timeout
         )
         response.raise_for_status()
@@ -74,7 +80,7 @@ class ReceitaCnpjSource:
         months = [
             item.name
             for item in self.list_directory()
-            if item.is_dir and len(item.name) == 7 and item.name[4] == "-"
+            if item.is_dir and re.match(r"^\d{4}-\d{2}$", item.name)
         ]
         return sorted(months)
 
@@ -99,7 +105,7 @@ class ReceitaCnpjSource:
         temp_destination = destination.with_suffix(f"{destination.suffix}.part")
         url = urljoin(self.base_url, f"{month}/{filename}")
 
-        with requests.get(url, stream=True, timeout=self.timeout) as response:
+        with self.session.get(url, stream=True, timeout=self.timeout) as response:
             response.raise_for_status()
             with temp_destination.open("wb") as file:
                 for chunk in response.iter_content(chunk_size=1024 * 1024):

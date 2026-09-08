@@ -9,6 +9,7 @@ __pycache__/
 .ruff_cache/
 
 # Raw data is too large for Git and should live in local storage or object storage.
+/docs/
 downloads/
 *.zip
 *.parquet

@@ -72,6 +72,12 @@ Instale as dependencias:
 pip install -r requirements.txt
 ```
 
+Para desenvolvimento local, instale tambem as dependencias opcionais:
+
+```bash
+pip install -e ".[dev]"
+```
+
 Copie `.env.example` para `.env` e ajuste as variaveis.
 
 Ingestao local:
@@ -102,9 +108,43 @@ python cnpj_monthly_download.py
 
 Use portugues sempre que possivel no projeto, incluindo codigo, comentarios, documentacao e mensagens de commit. Mantenha termos tecnicos em ingles quando forem convencoes consolidadas da ferramenta ou biblioteca, como `source`, `sink`, `staging`, `snapshot`, `fixture`, `raw`, `bronze`, `dbt` e `Airflow`.
 
+As mensagens de commit devem seguir Conventional Commits com escopo explicito:
+
+```text
+tipo(escopo): descricao
+```
+
+Exemplos:
+
+```text
+testes(fixtures): adiciona amostras sinteticas de cnpj
+infra(empacotamento): configura pyproject
+refactor(ingestao): injeta dependencias nos clientes externos
+```
+
+## Desenvolvimento
+
+Rodar testes unitarios:
+
+```bash
+python -m unittest discover
+```
+
+Rodar testes com pytest, quando as dependencias de desenvolvimento estiverem instaladas:
+
+```bash
+pytest
+```
+
+Rodar lint com Ruff:
+
+```bash
+ruff check .
+```
+
 ## Validacao inicial
 
-O relatorio da validacao local esta em `docs/cnpj_validation_2026_08.md`.
+O relatorio exploratorio de validacao local fica fora do Git publico. A pasta `docs/` esta ignorada neste repositorio porque pode conter analises locais, outputs exploratorios e detalhes de contexto que nao precisam ir para o portfolio publico.
 
 Principais conclusoes:
 

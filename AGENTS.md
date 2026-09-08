@@ -5,7 +5,8 @@
 Use portugues sempre que possivel neste repositorio.
 
 - Prefira nomes, comentarios, documentacao e mensagens de erro em portugues quando isso nao prejudicar compatibilidade tecnica.
-- Commits devem ser escritos em portugues sempre que possivel.
+- Commits devem seguir Conventional Commits com escopo explicito no formato `tipo(escopo): descricao`.
+- Use portugues nas descricoes de commit sempre que possivel. Exemplo: `testes(fixtures): adiciona amostras sinteticas de cnpj`.
 - Mantenha nomes tecnicos consagrados em ingles quando forem convencoes da ferramenta ou biblioteca, como `source`, `sink`, `staging`, `snapshot`, `fixture`, `raw`, `bronze`, `dbt` e `Airflow`.
 
 ## Dados E Seguranca
