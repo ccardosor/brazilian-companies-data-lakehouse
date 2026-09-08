@@ -1,2 +1,2 @@
-"""Utilities for ingesting Receita Federal CNPJ open data."""
+"""Utilidades para ingestão dos dados de CNPJ da Receita Federal"""
 

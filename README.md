@@ -53,11 +53,12 @@ Os arquivos originais sao CSV sem cabecalho, separados por `;`, com campos entre
 |   `-- cli.py         # CLI unica para local ou S3
 |-- cnpj_monthly_download_local.py
 |-- cnpj_monthly_download.py
-|-- validate_cnpj_extract.py
-|-- profile_cnpj_sample.py
-|-- inspect_partitions.py
+|-- tests/
+|   `-- fixtures/
+|       `-- cnpj/
 |-- docs/
 |   `-- cnpj_validation_2026_08.md
+|-- AGENTS.md
 |-- .env.example
 |-- .gitignore
 `-- requirements.txt
@@ -96,6 +97,10 @@ Atalho equivalente:
 ```bash
 python cnpj_monthly_download.py
 ```
+
+## Convencoes de trabalho
+
+Use portugues sempre que possivel no projeto, incluindo codigo, comentarios, documentacao e mensagens de commit. Mantenha termos tecnicos em ingles quando forem convencoes consolidadas da ferramenta ou biblioteca, como `source`, `sink`, `staging`, `snapshot`, `fixture`, `raw`, `bronze`, `dbt` e `Airflow`.
 
 ## Validacao inicial
 

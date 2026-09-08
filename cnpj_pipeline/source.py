@@ -17,7 +17,7 @@ class RemoteItem:
 
 
 class ReceitaCnpjSource:
-    """Lists and downloads CNPJ open-data files from the public WebDAV endpoint."""
+    """Lista e faz o download dos dados de CNPJ do endpoint WebDAV Público."""
 
     def __init__(self, base_url: str, timeout: int = 60) -> None:
         self.base_url = base_url if base_url.endswith("/") else f"{base_url}/"
@@ -81,7 +81,7 @@ class ReceitaCnpjSource:
     def latest_month(self) -> str:
         months = self.list_months()
         if not months:
-            raise RuntimeError("No YYYY-MM directories were found in the source.")
+            raise RuntimeError("Nenhum diretorio YYYY-MM foi encontrado na origem.")
         return months[-1]
 
     def list_zip_files(self, month: str) -> list[RemoteItem]:

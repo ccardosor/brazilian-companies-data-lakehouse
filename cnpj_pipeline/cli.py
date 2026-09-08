@@ -17,7 +17,9 @@ DEFAULT_BASE_URL = (
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Ingest Receita Federal CNPJ files.")
+    parser = argparse.ArgumentParser(
+        description="Ingere arquivos de CNPJ da Receita Federal."
+    )
     parser.add_argument("--month", default=os.getenv("CNPJ_TARGET_MONTH"))
     parser.add_argument("--base-url", default=os.getenv("CNPJ_BASE_URL", DEFAULT_BASE_URL))
     parser.add_argument("--no-extract", action="store_true")
@@ -25,14 +27,16 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="destination", required=True)
 
-    local = subparsers.add_parser("local", help="Download and extract files locally.")
+    local = subparsers.add_parser(
+        "local", help="Baixa e extrai os arquivos localmente."
+    )
     local.add_argument(
         "--base-dir",
         default=os.getenv("LOCAL_BASE_DIR", "./downloads"),
-        help="Local directory used to store zip and extracted files.",
+        help="Diretorio local usado para armazenar zips e arquivos extraidos.",
     )
 
-    s3 = subparsers.add_parser("s3", help="Download files and upload them to S3.")
+    s3 = subparsers.add_parser("s3", help="Baixa os arquivos e envia para o S3.")
     s3.add_argument("--bucket", default=os.getenv("S3_BUCKET_NAME"), required=False)
     s3.add_argument("--prefix-root", default=os.getenv("S3_PREFIX_ROOT", "raw/cnpj"))
     s3.add_argument("--region", default=os.getenv("AWS_REGION"))
@@ -40,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     s3.add_argument(
         "--spool-dir",
         default=None,
-        help="Optional local temporary directory for downloaded zip files.",
+        help="Diretorio temporario local opcional para os arquivos zip baixados.",
     )
 
     return parser
@@ -69,7 +73,7 @@ def main() -> None:
         return
 
     if not args.bucket:
-        raise SystemExit("S3_BUCKET_NAME or --bucket is required for S3 ingestion.")
+        raise SystemExit("S3_BUCKET_NAME ou --bucket e obrigatorio para ingestao S3.")
 
     sink = S3Sink(
         bucket_name=args.bucket,
