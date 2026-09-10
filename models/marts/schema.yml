@@ -1,0 +1,56 @@
+version: 2
+
+models:
+  - name: dim_empresas
+    description: Dimensao local de empresas, enriquecida com natureza juridica, qualificacao do responsavel e porte.
+    columns:
+      - name: chave_empresa
+        tests:
+          - not_null
+          - unique
+      - name: ano_mes
+        tests:
+          - not_null
+      - name: cnpj_basico
+        tests:
+          - not_null
+      - name: natureza_juridica
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cnpj_naturezas_juridicas')
+                field: codigo_natureza_juridica
+      - name: porte_empresa
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["00", "01", "03", "05"]
+
+  - name: dim_estabelecimentos
+    description: Dimensao local de estabelecimentos com chaves, dominios descritivos e atributos de endereco.
+    columns:
+      - name: chave_estabelecimento
+      - name: chave_empresa
+      - name: cnpj_completo
+      - name: situacao_cadastral
+      - name: identificador_matriz_filial
+
+  - name: fct_estabelecimentos_por_uf_cnae
+    description: Agregado mensal de estabelecimentos por UF, municipio e CNAE principal.
+    columns:
+      - name: chave_estabelecimentos_por_uf_cnae
+        tests:
+          - not_null
+          - unique
+      - name: ano_mes
+        tests:
+          - not_null
+      - name: quantidade_estabelecimentos
+        tests:
+          - not_null
+      - name: quantidade_empresas
+        tests:
+          - not_null
+      - name: quantidade_estabelecimentos_ativos
+        tests:
+          - not_null

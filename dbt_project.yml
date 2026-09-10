@@ -18,3 +18,5 @@ models:
   brazilian_companies_data_lakehouse:
     staging:
       +materialized: view
+    marts:
+      +materialized: table

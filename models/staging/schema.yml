@@ -10,6 +10,12 @@ models:
       - name: cnpj_basico
         tests:
           - not_null
+      - name: natureza_juridica
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cnpj_naturezas_juridicas')
+                field: codigo_natureza_juridica
       - name: porte_empresa
         tests:
           - accepted_values:
@@ -28,6 +34,7 @@ models:
       - name: cnpj_completo
         tests:
           - not_null
+          - unique
       - name: identificador_matriz_filial
         tests:
           - accepted_values:
@@ -38,6 +45,18 @@ models:
           - accepted_values:
               arguments:
                 values: ["01", "02", "03", "04", "08"]
+      - name: municipio
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cnpj_municipios')
+                field: codigo_municipio
+      - name: cnae_fiscal_principal
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cnpj_cnaes')
+                field: codigo_cnae
 
   - name: stg_cnpj_simples
     description: Opcoes pelo Simples Nacional e MEI.
@@ -48,6 +67,7 @@ models:
       - name: cnpj_basico
         tests:
           - not_null
+          - unique
       - name: opcao_simples
         tests:
           - accepted_values:
@@ -73,10 +93,31 @@ models:
           - accepted_values:
               arguments:
                 values: ["1", "2", "3"]
+      - name: qualificacao_socio
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cnpj_qualificacoes')
+                field: codigo_qualificacao
+      - name: qualificacao_representante_legal
+        tests:
+          - relationships:
+              arguments:
+                to: ref('stg_cnpj_qualificacoes')
+                field: codigo_qualificacao
+      - name: faixa_etaria
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
   - name: stg_cnpj_paises
     columns:
       - name: codigo_pais
+        tests:
+          - not_null
+          - unique
+      - name: descricao_pais
         tests:
           - not_null
 
@@ -85,10 +126,18 @@ models:
       - name: codigo_municipio
         tests:
           - not_null
+          - unique
+      - name: descricao_municipio
+        tests:
+          - not_null
 
   - name: stg_cnpj_qualificacoes
     columns:
       - name: codigo_qualificacao
+        tests:
+          - not_null
+          - unique
+      - name: descricao_qualificacao
         tests:
           - not_null
 
@@ -97,15 +146,27 @@ models:
       - name: codigo_natureza_juridica
         tests:
           - not_null
+          - unique
+      - name: descricao_natureza_juridica
+        tests:
+          - not_null
 
   - name: stg_cnpj_cnaes
     columns:
       - name: codigo_cnae
         tests:
           - not_null
+          - unique
+      - name: descricao_cnae
+        tests:
+          - not_null
 
   - name: stg_cnpj_motivos
     columns:
       - name: codigo_motivo
+        tests:
+          - not_null
+          - unique
+      - name: descricao_motivo
         tests:
           - not_null
