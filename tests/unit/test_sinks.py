@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 import zipfile
@@ -67,6 +68,10 @@ class LocalSinkTest(unittest.TestCase):
             sink.mark_done("2026-08")
 
             self.assertTrue(sink.is_done("2026-08"))
+            manifest = json.loads(sink.manifest_path("2026-08").read_text())
+            self.assertEqual(manifest["ano_mes"], "2026-08")
+            self.assertEqual(manifest["destino"], "local")
+            self.assertFalse(sink.legacy_done_path("2026-08").exists())
 
 
 class S3SinkTest(unittest.TestCase):
@@ -80,6 +85,10 @@ class S3SinkTest(unittest.TestCase):
         self.assertEqual(
             sink.extracted_prefix("2026-08"),
             "raw/cnpj/ano_mes=2026-08/unzipped/",
+        )
+        self.assertEqual(
+            sink.manifest_key("2026-08"),
+            "raw/cnpj/ano_mes=2026-08/ingestao-manifest.json",
         )
 
     def test_ingere_zip_para_s3_com_extracao(self) -> None:
@@ -109,6 +118,10 @@ class S3SinkTest(unittest.TestCase):
         sink.mark_done("2026-08")
 
         self.assertTrue(sink.is_done("2026-08"))
+        self.assertIn(
+            ("bucket", "raw/cnpj/ano_mes=2026-08/ingestao-manifest.json"),
+            cliente.objects,
+        )
         sink.check_access()
         self.assertEqual(cliente.head_bucket_calls, ["bucket"])
 

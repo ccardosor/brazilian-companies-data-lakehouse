@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,22 +32,14 @@ def converter_csvs_extraidos_para_parquet(
     if not input_dir.exists():
         raise FileNotFoundError(f"Diretorio de CSVs nao encontrado: {input_dir}")
 
-    arquivos = [
-        caminho
-        for caminho in sorted(input_dir.rglob("*"))
-        if caminho.is_file() and identificar_layout(caminho) is not None
-    ]
+    arquivos = _listar_csvs_com_layout(input_dir)
     if not arquivos:
         raise RuntimeError(f"Nenhum CSV conhecido foi encontrado em {input_dir}.")
 
     resultados: list[ConvertedFile] = []
     conexao = duckdb.connect(database=":memory:")
     try:
-        for caminho_csv in arquivos:
-            layout = identificar_layout(caminho_csv)
-            if layout is None:
-                continue
-
+        for caminho_csv, layout in arquivos:
             destino = _parquet_path(lakehouse_dir, layout, month, caminho_csv)
             if destino.exists() and not force:
                 resultados.append(
@@ -71,13 +64,57 @@ def converter_csvs_extraidos_para_parquet(
     finally:
         conexao.close()
 
-    marcador = lakehouse_dir / "raw" / "cnpj" / f"conversao-finalizada-{month}.txt"
-    marcador.parent.mkdir(parents=True, exist_ok=True)
-    marcador.write_text(
-        f"Finalizado em {datetime.now(timezone.utc).isoformat()}\n",
+    _escrever_manifest_conversao(lakehouse_dir, month, resultados)
+    return resultados
+
+
+def _listar_csvs_com_layout(input_dir: Path) -> list[tuple[Path, CsvLayout]]:
+    arquivos: list[tuple[Path, CsvLayout]] = []
+    for caminho in sorted(input_dir.rglob("*")):
+        if not caminho.is_file():
+            continue
+
+        layout = identificar_layout(caminho)
+        if layout is not None:
+            arquivos.append((caminho, layout))
+
+    return arquivos
+
+
+def _escrever_manifest_conversao(
+    lakehouse_dir: Path,
+    month: str,
+    resultados: list[ConvertedFile],
+) -> None:
+    manifest_path = (
+        lakehouse_dir
+        / "raw"
+        / "cnpj"
+        / "_manifests"
+        / "conversao"
+        / f"ano_mes={month}"
+        / "manifest.json"
+    )
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "ano_mes": month,
+        "finalizado_em_utc": datetime.now(timezone.utc).isoformat(),
+        "arquivos_convertidos": sum(not item.skipped for item in resultados),
+        "arquivos_pulados": sum(item.skipped for item in resultados),
+        "arquivos": [
+            {
+                "dataset": item.dataset,
+                "origem": str(item.source_path),
+                "destino": str(item.parquet_path),
+                "pulado": item.skipped,
+            }
+            for item in resultados
+        ],
+    }
+    manifest_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    return resultados
 
 
 def _parquet_path(

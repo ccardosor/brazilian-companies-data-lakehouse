@@ -52,19 +52,15 @@ Os arquivos originais sao CSV sem cabecalho, separados por `;`, com campos entre
 |   |-- source.py      # listagem e download no WebDAV da Receita
 |   |-- sinks.py       # destinos local e S3
 |   |-- pipeline.py    # orquestracao da ingestao mensal
-|   `-- cli.py         # CLI unica para local ou S3
+|   `-- cli.py         # CLI unica para local, S3 e Parquet
 |-- macros/            # macros dbt para ler Parquet local
 |-- models/staging/    # modelos staging iniciais em dbt-duckdb
-|-- cnpj_monthly_download_local.py
-|-- cnpj_monthly_download.py
+|-- cnpj_monthly_download.py # wrapper por variavel de ambiente
 |-- tests/
 |   `-- fixtures/
 |       `-- cnpj/
 |-- dbt_project.yml
 |-- profiles.yml.example
-|-- docs/
-|   `-- cnpj_validation_2026_08.md
-|-- AGENTS.md
 |-- .env.example
 |-- .gitignore
 `-- requirements.txt
@@ -95,7 +91,7 @@ python -m cnpj_pipeline.cli local --month 2026-08
 Atalho equivalente:
 
 ```bash
-python cnpj_monthly_download_local.py
+python cnpj_monthly_download.py
 ```
 
 Ingestao para S3:
@@ -107,8 +103,13 @@ python -m cnpj_pipeline.cli s3 --month 2026-08
 Atalho equivalente:
 
 ```bash
+CNPJ_DESTINATION=s3
 python cnpj_monthly_download.py
 ```
+
+O wrapper `cnpj_monthly_download.py` usa `CNPJ_DESTINATION=local` por padrao. Para enviar ao S3, defina `CNPJ_DESTINATION=s3` e configure as variaveis `S3_*`.
+
+Ao concluir, a ingestao escreve um manifest JSON em `ingestao-manifest.json` no destino da competencia. Marcadores legados `download-finalizado.txt` ainda sao reconhecidos para compatibilidade com execucoes antigas, mas novas execucoes nao criam esse arquivo.
 
 Conversao local dos CSVs extraidos para Parquet:
 
@@ -148,6 +149,8 @@ dbt test
 ```
 
 Os modelos staging leem os Parquets diretamente de `downloads/lakehouse/raw/cnpj`, usando particoes Hive `ano_mes=<YYYY-MM>`.
+
+A conversao tambem grava um manifest JSON em `downloads/lakehouse/raw/cnpj/_manifests/conversao/ano_mes=<YYYY-MM>/manifest.json`.
 
 ## Convencoes de trabalho
 

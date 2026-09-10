@@ -43,7 +43,7 @@ def ingest_month(
         print(f"Ingerido: {ingested.zip_location}")
 
     sink.mark_done(target_month)
-    print("Marcador de finalizacao criado.")
+    print("Manifest de finalizacao criado.")
     return target_month
 
 

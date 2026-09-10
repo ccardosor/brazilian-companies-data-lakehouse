@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urljoin
+
+import requests
 
 
 @dataclass(frozen=True)
@@ -21,13 +23,7 @@ class ReceitaCnpjSource:
     def __init__(self, base_url: str, timeout: int = 60, session=None) -> None:
         self.base_url = base_url if base_url.endswith("/") else f"{base_url}/"
         self.timeout = timeout
-        self.session = session or self._build_session()
-
-    @staticmethod
-    def _build_session():
-        import requests
-
-        return requests
+        self.session = session or requests.Session()
 
     def list_directory(self, path: str = "") -> list[RemoteItem]:
         url = urljoin(self.base_url, path)

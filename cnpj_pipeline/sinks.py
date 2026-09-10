@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import zipfile
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -21,10 +22,19 @@ class LocalSink:
         return self.base_dir / month / filename
 
     def done_path(self, month: str) -> Path:
+        return self.manifest_path(month)
+
+    def manifest_path(self, month: str) -> Path:
+        return self.base_dir / month / "ingestao-manifest.json"
+
+    def legacy_done_path(self, month: str) -> Path:
         return self.base_dir / month / "download-finalizado.txt"
 
     def is_done(self, month: str) -> bool:
-        return self.done_path(month).exists()
+        return (
+            self.manifest_path(month).exists()
+            or self.legacy_done_path(month).exists()
+        )
 
     def has_zip(self, month: str, filename: str) -> bool:
         return self.zip_path(month, filename).exists()
@@ -46,9 +56,17 @@ class LocalSink:
         )
 
     def mark_done(self, month: str) -> None:
-        done_path = self.done_path(month)
-        done_path.parent.mkdir(parents=True, exist_ok=True)
-        done_path.write_text(f"Finalizado em {datetime.now()}", encoding="utf-8")
+        manifest_path = self.manifest_path(month)
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "ano_mes": month,
+            "destino": "local",
+            "finalizado_em_utc": datetime.now(timezone.utc).isoformat(),
+        }
+        manifest_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
 
 
 class S3Sink:
@@ -83,10 +101,18 @@ class S3Sink:
         return f"{self.prefix_root}/ano_mes={month}/unzipped/"
 
     def done_key(self, month: str) -> str:
+        return self.manifest_key(month)
+
+    def manifest_key(self, month: str) -> str:
+        return f"{self.prefix_root}/ano_mes={month}/ingestao-manifest.json"
+
+    def legacy_done_key(self, month: str) -> str:
         return f"{self.prefix_root}/ano_mes={month}/download-finalizado.txt"
 
     def is_done(self, month: str) -> bool:
-        return self._object_exists(self.done_key(month))
+        return self._object_exists(self.manifest_key(month)) or self._object_exists(
+            self.legacy_done_key(month)
+        )
 
     def has_zip(self, month: str, filename: str) -> bool:
         return self._object_exists(self.zip_key(month, filename))
@@ -110,10 +136,19 @@ class S3Sink:
         )
 
     def mark_done(self, month: str) -> None:
+        payload = {
+            "ano_mes": month,
+            "destino": "s3",
+            "bucket": self.bucket_name,
+            "prefixo": f"{self.prefix_root}/ano_mes={month}/",
+            "finalizado_em_utc": datetime.now(timezone.utc).isoformat(),
+        }
         self.client.put_object(
             Bucket=self.bucket_name,
-            Key=self.done_key(month),
-            Body=f"Finalizado em {datetime.now()}".encode("utf-8"),
+            Key=self.manifest_key(month),
+            Body=(json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode(
+                "utf-8"
+            ),
         )
 
     def check_access(self) -> None:
