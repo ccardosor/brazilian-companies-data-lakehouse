@@ -117,6 +117,7 @@ def main() -> None:
             lakehouse_dir=Path(args.lakehouse_dir),
             month=args.month,
             force=args.force,
+            progress_callback=print,
         )
         convertidos = [item for item in resultados if not item.skipped]
         pulados = [item for item in resultados if item.skipped]
