@@ -30,3 +30,4 @@ inspect_partitions.py
 Thumbs.db
 .idea/
 .vscode/
+dbt_internal_packages/
