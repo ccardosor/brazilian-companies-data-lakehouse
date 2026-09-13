@@ -1,20 +1,27 @@
-with empresas_rankeadas as (
+with dados_ordenados as (
     select
-        empresas.*,
+        *,
         count(*) over (
             partition by ano_mes, cnpj_basico
         ) as linhas_origem_mesma_chave,
         row_number() over (
             partition by ano_mes, cnpj_basico
-            order by arquivo_origem
-        ) as ordem_linha
-    from {{ ref('stg_cnpj_empresas') }} as empresas
+            order by
+                case when razao_social is not null then 0 else 1 end,
+                case when natureza_juridica is not null and natureza_juridica != '0000' then 0 else 1 end,
+                case when qualificacao_responsavel is not null and qualificacao_responsavel != '00' then 0 else 1 end,
+                case when porte_empresa is not null then 0 else 1 end,
+                data_processamento_utc desc,
+                arquivo_origem
+                    ) as rn
+    from {{ ref('stg_cnpj_empresas') }}
 ),
 
 empresas as (
-    select *
-    from empresas_rankeadas
-    where ordem_linha = 1
+    select
+        *
+    from dados_ordenados
+    where rn = 1
 )
 
 select
