@@ -6,6 +6,14 @@ read_parquet(
 )
 {%- endmacro %}
 
+{% macro raw_serpro_dominio(dataset) -%}
+read_parquet(
+    '{{ var("serpro_raw_path", "downloads/lakehouse/raw/serpro/dominios_pj") }}/{{ dataset }}/snapshot_id=*/*.parquet',
+    hive_partitioning = true,
+    union_by_name = true
+)
+{%- endmacro %}
+
 {% macro data_receita(coluna) -%}
 try_strptime({{ coluna }}, '%Y%m%d')::date
 {%- endmacro %}

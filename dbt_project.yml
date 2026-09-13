@@ -13,6 +13,7 @@ clean-targets:
 
 vars:
   cnpj_raw_path: "downloads/lakehouse/raw/cnpj"
+  serpro_raw_path: "downloads/lakehouse/raw/serpro/dominios_pj"
 
 models:
   brazilian_companies_data_lakehouse:
