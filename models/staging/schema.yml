@@ -170,3 +170,23 @@ models:
       - name: descricao_motivo
         tests:
           - not_null
+
+  - name: stg_serpro_paises
+    columns:
+      - name: codigo_pais
+        tests:
+          - not_null
+          - unique
+      - name: descricao_pais
+        tests:
+          - not_null
+
+  - name: stg_serpro_motivos
+    columns:
+      - name: codigo_motivo
+        tests:
+          - not_null
+          - unique
+      - name: descricao_motivo
+        tests:
+          - not_null
