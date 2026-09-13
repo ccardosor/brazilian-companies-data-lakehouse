@@ -54,3 +54,31 @@ models:
       - name: quantidade_estabelecimentos_ativos
         tests:
           - not_null
+
+  - name: dim_paises
+    description: Dimensao local de paises, enriquecida com codigo_pais, descricao_pais e dataset_origem.
+    columns:
+      - name: codigo_pais
+        tests:
+          - not_null
+          - unique
+      - name: descricao_pais
+        tests:
+          - not_null
+      - name: dataset_origem
+        tests:
+          - not_null
+
+  - name: dim_motivos
+    description: Dimensao local de motivos, enriquecida com codigo_motivo, descricao_motivo e dataset_origem.
+    columns:
+      - name: codigo_motivo
+        tests:
+          - not_null
+          - unique
+      - name: descricao_motivo
+        tests:
+          - not_null
+      - name: dataset_origem
+        tests:
+          - not_null
