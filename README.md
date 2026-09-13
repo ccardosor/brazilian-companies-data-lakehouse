@@ -144,12 +144,30 @@ Esse comando baixa dominios publicos complementares de pessoa juridica do Serpro
 downloads/serpro/dominios/pj/
 ```
 
+Por padrao, o comando tambem converte os CSVs baixados/reutilizados para Parquet em:
+
+```text
+downloads/lakehouse/raw/serpro/dominios_pj/<dataset>/snapshot_id=<snapshot>/<dataset>.parquet
+```
+
+Para executar apenas a coleta dos CSVs, use:
+
+```bash
+python -m cnpj_pipeline.cli serpro-dominios --no-parquet
+```
+
 Essa etapa nao bloqueia a pipeline principal da Receita Federal. Se o Serpro estiver indisponivel e ja existir um arquivo local valido, o comando reutiliza o ultimo snapshot local e registra isso no manifest. Se nao existir snapshot valido, registra a falha e permite que a esteira principal siga apenas com os dominios da Receita.
 
 O manifest da etapa fica em:
 
 ```text
 downloads/serpro/dominios/pj/_manifests/ultimo-manifest.json
+```
+
+O manifest da conversao para Parquet fica em:
+
+```text
+downloads/lakehouse/raw/serpro/dominios_pj/_manifests/conversao/snapshot_id=<snapshot>/manifest.json
 ```
 
 ## dbt local com DuckDB

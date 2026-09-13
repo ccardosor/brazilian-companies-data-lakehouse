@@ -5,7 +5,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cnpj_pipeline.serpro import SerproDomainSource, baixar_dominios_serpro
+import duckdb
+
+from cnpj_pipeline.serpro import (
+    SerproDomainSource,
+    baixar_dominios_serpro,
+    converter_dominios_serpro_para_parquet,
+)
 
 
 class RespostaFake:
@@ -131,6 +137,79 @@ class SerproDomainTest(unittest.TestCase):
                 [item.status for item in resultados],
                 ["existente", "existente"],
             )
+
+    def test_converte_dominios_serpro_para_parquet(self) -> None:
+        responses = {
+            "https://bcadastros.serpro.gov.br/documentacao/dominios/pj/pais.csv": (
+                RespostaFake(chunks=[b"Codigo;Descricao\n", b"13;AFEGANISTAO\n"])
+            ),
+            (
+                "https://bcadastros.serpro.gov.br/documentacao/dominios/pj/"
+                "motivo_situacao_cadastral.csv"
+            ): RespostaFake(chunks=[b"Codigo;Descricao\n", b"32;INAPTIDAO\n"]),
+        }
+        source = SerproDomainSource(session=SessaoSerproFake(responses))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base_dir = Path(temp_dir) / "downloads"
+            lakehouse_dir = Path(temp_dir) / "lakehouse"
+            baixar_dominios_serpro(base_dir, source=source)
+
+            resultados = converter_dominios_serpro_para_parquet(
+                base_dir=base_dir,
+                lakehouse_dir=lakehouse_dir,
+            )
+
+            self.assertEqual(
+                [item.status for item in resultados],
+                ["convertido", "convertido"],
+            )
+            parquet_path = Path(resultados[0].parquet_path or "")
+            self.assertTrue(parquet_path.exists())
+
+            with duckdb.connect(database=":memory:") as connection:
+                rows = connection.execute(
+                    "select codigo, descricao, dataset from read_parquet(?)",
+                    [str(parquet_path)],
+                ).fetchall()
+
+            self.assertEqual(rows, [("13", "AFEGANISTAO", "paises")])
+            self.assertTrue(
+                (
+                    lakehouse_dir
+                    / "raw"
+                    / "serpro"
+                    / "dominios_pj"
+                    / "_manifests"
+                    / "conversao"
+                ).exists()
+            )
+
+    def test_conversao_parquet_registra_falha_quando_csv_nao_existe(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base_dir = Path(temp_dir) / "downloads"
+            lakehouse_dir = Path(temp_dir) / "lakehouse"
+
+            resultados = converter_dominios_serpro_para_parquet(
+                base_dir=base_dir,
+                lakehouse_dir=lakehouse_dir,
+            )
+
+            self.assertEqual(
+                [item.status for item in resultados],
+                ["falhou", "falhou"],
+            )
+            manifests = list(
+                (
+                    lakehouse_dir
+                    / "raw"
+                    / "serpro"
+                    / "dominios_pj"
+                    / "_manifests"
+                    / "conversao"
+                ).rglob("manifest.json")
+            )
+            self.assertEqual(len(manifests), 1)
 
 
 if __name__ == "__main__":

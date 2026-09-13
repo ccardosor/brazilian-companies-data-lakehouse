@@ -21,7 +21,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Ingere arquivos de CNPJ da Receita Federal."
     )
     parser.add_argument("--month", default=os.getenv("CNPJ_TARGET_MONTH"))
-    parser.add_argument("--base-url", default=os.getenv("CNPJ_BASE_URL", DEFAULT_BASE_URL))
+    parser.add_argument(
+        "--base-url",
+        default=os.getenv("CNPJ_BASE_URL", DEFAULT_BASE_URL),
+    )
     parser.add_argument("--no-extract", action="store_true")
     parser.add_argument("--force", action="store_true")
 
@@ -77,12 +80,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     serpro = subparsers.add_parser(
         "serpro-dominios",
-        help="Baixa dominios complementares PJ do Serpro sem bloquear a pipeline principal.",
+        help=(
+            "Baixa dominios complementares PJ do Serpro sem bloquear a pipeline "
+            "principal."
+        ),
     )
     serpro.add_argument(
         "--base-dir",
         default=os.getenv("LOCAL_BASE_DIR", "./downloads"),
         help="Diretorio local usado para armazenar os dominios complementares.",
+    )
+    serpro.add_argument(
+        "--lakehouse-dir",
+        default=os.getenv("LOCAL_LAKEHOUSE_DIR", "./downloads/lakehouse"),
+        help="Raiz local do lakehouse usada para gravar os Parquets raw/serpro.",
     )
     serpro.add_argument(
         "--timeout",
@@ -91,6 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Timeout em segundos para cada download do Serpro.",
     )
     serpro.add_argument("--force", action="store_true", default=argparse.SUPPRESS)
+    serpro.add_argument(
+        "--no-parquet",
+        action="store_true",
+        help="Baixa os CSVs do Serpro sem converter os dominios para Parquet.",
+    )
 
     return parser
 
@@ -99,8 +115,8 @@ def main() -> None:
     load_dotenv()
     args = build_parser().parse_args()
 
-    from cnpj_pipeline.pipeline import ingest_month, ingest_to_s3_with_temp_spool
     from cnpj_pipeline.parquet import converter_csvs_extraidos_para_parquet
+    from cnpj_pipeline.pipeline import ingest_month, ingest_to_s3_with_temp_spool
     from cnpj_pipeline.sinks import LocalSink, S3Sink
 
     if args.destination == "local":
@@ -144,7 +160,11 @@ def main() -> None:
         return
 
     if args.destination == "serpro-dominios":
-        from cnpj_pipeline.serpro import SerproDomainSource, baixar_dominios_serpro
+        from cnpj_pipeline.serpro import (
+            SerproDomainSource,
+            baixar_dominios_serpro,
+            converter_dominios_serpro_para_parquet,
+        )
 
         resultados = baixar_dominios_serpro(
             base_dir=Path(args.base_dir),
@@ -156,6 +176,22 @@ def main() -> None:
             detalhe = resultado.path or resultado.error or "sem detalhe"
             print(f"{resultado.dataset}: {resultado.status} ({detalhe})")
         print(f"Diretorio local: {Path(args.base_dir) / 'serpro' / 'dominios' / 'pj'}")
+        if args.no_parquet:
+            return
+
+        resultados_parquet = converter_dominios_serpro_para_parquet(
+            base_dir=Path(args.base_dir),
+            lakehouse_dir=Path(args.lakehouse_dir),
+            force=args.force,
+            progress_callback=print,
+        )
+        for resultado in resultados_parquet:
+            detalhe = resultado.parquet_path or resultado.error or "sem detalhe"
+            print(f"{resultado.dataset}: {resultado.status} ({detalhe})")
+        print(
+            "Lakehouse Serpro: "
+            f"{Path(args.lakehouse_dir) / 'raw' / 'serpro' / 'dominios_pj'}"
+        )
         return
 
     if not args.bucket:
