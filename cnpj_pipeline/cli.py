@@ -75,6 +75,23 @@ def build_parser() -> argparse.ArgumentParser:
         help="Raiz local do lakehouse usada para gravar os Parquets raw/cnpj.",
     )
 
+    serpro = subparsers.add_parser(
+        "serpro-dominios",
+        help="Baixa dominios complementares PJ do Serpro sem bloquear a pipeline principal.",
+    )
+    serpro.add_argument(
+        "--base-dir",
+        default=os.getenv("LOCAL_BASE_DIR", "./downloads"),
+        help="Diretorio local usado para armazenar os dominios complementares.",
+    )
+    serpro.add_argument(
+        "--timeout",
+        type=int,
+        default=int(os.getenv("SERPRO_TIMEOUT_SECONDS", "60")),
+        help="Timeout em segundos para cada download do Serpro.",
+    )
+    serpro.add_argument("--force", action="store_true", default=argparse.SUPPRESS)
+
     return parser
 
 
@@ -124,6 +141,21 @@ def main() -> None:
         print(f"Arquivos convertidos: {len(convertidos)}")
         print(f"Arquivos pulados: {len(pulados)}")
         print(f"Lakehouse local: {Path(args.lakehouse_dir)}")
+        return
+
+    if args.destination == "serpro-dominios":
+        from cnpj_pipeline.serpro import SerproDomainSource, baixar_dominios_serpro
+
+        resultados = baixar_dominios_serpro(
+            base_dir=Path(args.base_dir),
+            source=SerproDomainSource(timeout=args.timeout),
+            force=args.force,
+            progress_callback=print,
+        )
+        for resultado in resultados:
+            detalhe = resultado.path or resultado.error or "sem detalhe"
+            print(f"{resultado.dataset}: {resultado.status} ({detalhe})")
+        print(f"Diretorio local: {Path(args.base_dir) / 'serpro' / 'dominios' / 'pj'}")
         return
 
     if not args.bucket:

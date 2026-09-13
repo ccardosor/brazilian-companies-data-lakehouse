@@ -132,6 +132,26 @@ python -m cnpj_pipeline.cli parquet-local \
   --lakehouse-dir ./downloads/lakehouse
 ```
 
+Dominios complementares do Serpro:
+
+```bash
+python -m cnpj_pipeline.cli serpro-dominios
+```
+
+Esse comando baixa dominios publicos complementares de pessoa juridica do Serpro, como paises e motivos de situacao cadastral, em:
+
+```text
+downloads/serpro/dominios/pj/
+```
+
+Essa etapa nao bloqueia a pipeline principal da Receita Federal. Se o Serpro estiver indisponivel e ja existir um arquivo local valido, o comando reutiliza o ultimo snapshot local e registra isso no manifest. Se nao existir snapshot valido, registra a falha e permite que a esteira principal siga apenas com os dominios da Receita.
+
+O manifest da etapa fica em:
+
+```text
+downloads/serpro/dominios/pj/_manifests/ultimo-manifest.json
+```
+
 ## dbt local com DuckDB
 
 Copie o exemplo de profile para o diretorio esperado pelo dbt ou informe o caminho na execucao:
