@@ -8,7 +8,10 @@ from cnpj_pipeline.source import ReceitaCnpjSource
 
 
 def resposta_webdav(*hrefs: tuple[str, bool, int | None]) -> bytes:
-    linhas = ['<?xml version="1.0" encoding="utf-8"?>', '<d:multistatus xmlns:d="DAV:">']
+    linhas = [
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<d:multistatus xmlns:d="DAV:">',
+    ]
     for href, is_dir, size in hrefs:
         resourcetype = "<d:collection/>" if is_dir else ""
         size_tag = f"<d:getcontentlength>{size}</d:getcontentlength>" if size else ""

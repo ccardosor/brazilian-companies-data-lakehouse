@@ -3,11 +3,15 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from cnpj_pipeline.layouts import CsvLayout, identificar_layout
+
+if TYPE_CHECKING:
+    import duckdb
 
 
 @dataclass(frozen=True)
@@ -31,7 +35,8 @@ def converter_csvs_extraidos_para_parquet(
         import duckdb
     except ModuleNotFoundError as error:
         raise RuntimeError(
-            "A dependencia duckdb nao esta instalada. Rode `pip install -r requirements.txt`."
+            "A dependencia duckdb nao esta instalada. "
+            "Rode `pip install -r requirements.txt`."
         ) from error
 
     if not input_dir.exists():
@@ -130,7 +135,7 @@ def _escrever_manifest_conversao(
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "ano_mes": month,
-        "finalizado_em_utc": datetime.now(timezone.utc).isoformat(),
+        "finalizado_em_utc": datetime.now(UTC).isoformat(),
         "arquivos_convertidos": sum(not item.skipped for item in resultados),
         "arquivos_pulados": sum(item.skipped for item in resultados),
         "arquivos": [
@@ -168,7 +173,7 @@ def _parquet_path(
 
 
 def _converter_arquivo(
-    conexao: "duckdb.DuckDBPyConnection",
+    conexao: duckdb.DuckDBPyConnection,
     source_path: Path,
     destino: Path,
     layout: CsvLayout,
@@ -189,7 +194,14 @@ def _converter_arquivo(
         csv_utf8 = source_path.with_name(f".{source_path.name}.{uuid4().hex}.utf8.tmp")
         try:
             _transcodificar_para_utf8(source_path, csv_utf8)
-            _executar_copy(conexao, csv_utf8, destino_temporario, layout, "utf-8")
+            _executar_copy(
+                conexao,
+                csv_utf8,
+                destino_temporario,
+                layout,
+                "utf-8",
+                nome_arquivo=source_path.name,
+            )
         finally:
             _remover_se_existir(csv_utf8)
 
@@ -198,12 +210,36 @@ def _converter_arquivo(
 
 
 def _executar_copy(
-    conexao: "duckdb.DuckDBPyConnection",
+    conexao: duckdb.DuckDBPyConnection,
     source_path: Path,
     destino: Path,
     layout: CsvLayout,
     encoding: str,
-) -> None:
+    nome_arquivo: str | None = None,
+) -> int:
+    return executar_copy_csv_para_parquet(
+        conexao=conexao,
+        origem=str(source_path),
+        destino=str(destino),
+        layout=layout,
+        encoding=encoding,
+        nome_arquivo=nome_arquivo or source_path.name,
+    )
+
+
+def executar_copy_csv_para_parquet(
+    conexao: duckdb.DuckDBPyConnection,
+    origem: str,
+    destino: str,
+    layout: CsvLayout,
+    encoding: str,
+    nome_arquivo: str,
+) -> int:
+    """Converte um CSV para Parquet e devolve a quantidade de linhas gravadas.
+
+    Origem e destino sao caminhos aceitos pelo DuckDB, ou seja, tanto caminhos
+    locais quanto URIs `s3://` quando a extensao httpfs esta carregada.
+    """
     colunas_csv = ", ".join(f"'{coluna}': 'VARCHAR'" for coluna in layout.colunas)
     colunas_select = ",\n        ".join(
         f"nullif(trim({quote_identifier(coluna)}), '') as {quote_identifier(coluna)}"
@@ -214,10 +250,10 @@ def _executar_copy(
 copy (
     select
         {colunas_select},
-        {sql_literal(source_path.name)} as arquivo_origem,
+        {sql_literal(nome_arquivo)} as arquivo_origem,
         current_timestamp as data_processamento_utc
     from read_csv(
-        {sql_literal(str(source_path))},
+        {sql_literal(origem)},
         delim = ';',
         quote = '"',
         escape = '"',
@@ -227,10 +263,11 @@ copy (
         null_padding = false,
         ignore_errors = false
     )
-) to {sql_literal(str(destino))}
+) to {sql_literal(destino)}
 (format parquet, compression zstd);
 """
-    conexao.execute(sql)
+    resultado = conexao.execute(sql).fetchone()
+    return int(resultado[0]) if resultado else 0
 
 
 def _erro_de_encoding_latin1(error: Exception) -> bool:
