@@ -1,4 +1,14 @@
+# Segredos. O repositorio e publico, entao qualquer arquivo de ambiente fica de
+# fora: --env-file do Docker costuma usar nomes livres como s3.env ou prod.env.
 .env
+*.env
+.env.*
+!.env.example
+profiles.yml
+*.pem
+*.key
+credentials.json
+
 /AGENTS.md
 .venv/
 venv/
@@ -11,6 +21,7 @@ __pycache__/
 target/
 dbt_packages/
 logs/
+*.log
 *.duckdb
 *.duckdb.wal
 
@@ -24,6 +35,7 @@ downloads/
 validate_cnpj_extract.py
 profile_cnpj_sample.py
 inspect_partitions.py
+acompanhar.py
 
 # Local editor/system files.
 .DS_Store
