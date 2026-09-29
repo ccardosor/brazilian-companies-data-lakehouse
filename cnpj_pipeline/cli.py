@@ -208,7 +208,7 @@ def main() -> None:
             lakehouse_dir=Path(args.lakehouse_dir),
             month=args.month,
             force=args.force,
-            progress_callback=print,
+            progress_callback=_imprimir,
         )
         convertidos = [item for item in resultados if not item.skipped]
         pulados = [item for item in resultados if item.skipped]
@@ -244,7 +244,7 @@ def main() -> None:
             month=args.month,
             lakehouse_prefix=args.lakehouse_prefix,
             force=args.force,
-            progress_callback=print,
+            progress_callback=_imprimir,
         )
         convertidos = [item for item in resultados if item.status == "ok"]
         pulados = [item for item in resultados if item.status == "pulado"]
@@ -272,7 +272,7 @@ def main() -> None:
             base_dir=Path(args.base_dir),
             source=SerproDomainSource(timeout=args.timeout),
             force=args.force,
-            progress_callback=print,
+            progress_callback=_imprimir,
         )
         for resultado in resultados:
             detalhe = resultado.path or resultado.error or "sem detalhe"
@@ -285,7 +285,7 @@ def main() -> None:
             base_dir=Path(args.base_dir),
             lakehouse_dir=Path(args.lakehouse_dir),
             force=args.force,
-            progress_callback=print,
+            progress_callback=_imprimir,
         )
         for resultado in resultados_parquet:
             detalhe = resultado.parquet_path or resultado.error or "sem detalhe"
