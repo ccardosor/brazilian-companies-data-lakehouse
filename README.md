@@ -49,10 +49,12 @@ Os arquivos originais sao CSV sem cabecalho, separados por `;`, com campos entre
 |-- cnpj_pipeline/
 |   |-- layouts.py     # layouts dos CSVs oficiais da Receita
 |   |-- parquet.py     # conversao local CSV -> Parquet
+|   |-- parquet_s3.py  # conversao CSV -> Parquet direto no S3
 |   |-- source.py      # listagem e download no WebDAV da Receita
 |   |-- sinks.py       # destinos local e S3
 |   |-- pipeline.py    # orquestracao da ingestao mensal
 |   `-- cli.py         # CLI unica para local, S3 e Parquet
+|-- docker/            # imagem da conversao CSV -> Parquet no S3
 |-- macros/            # macros dbt para ler Parquet local
 |-- models/staging/    # modelos staging iniciais em dbt-duckdb
 |-- cnpj_monthly_download.py # wrapper por variavel de ambiente
@@ -131,6 +133,154 @@ python -m cnpj_pipeline.cli parquet-local \
   --input-dir ./downloads/2026-08_unzipped \
   --lakehouse-dir ./downloads/lakehouse
 ```
+
+Conversao para Parquet direto no S3:
+
+```bash
+python -m cnpj_pipeline.cli parquet-s3 --month 2026-08
+```
+
+Esse comando le os arquivos brutos que a ingestao ja enviou ao bucket e grava os Parquets no proprio bucket, sem depender de uma copia local da competencia. Por padrao ele le os CSVs ja extraidos em `raw/cnpj/ano_mes=<YYYY-MM>/unzipped/` e, se nao houver nenhum (ingestao rodada com `--no-extract`), cai para os `.zip` em `raw/cnpj/ano_mes=<YYYY-MM>/zipped/`.
+
+Os Parquets ficam em:
+
+```text
+s3://<bucket>/<S3_LAKEHOUSE_PREFIX_ROOT>/raw/cnpj/<entidade>/ano_mes=<YYYY-MM>/<arquivo>.parquet
+```
+
+E o manifest da conversao em:
+
+```text
+s3://<bucket>/<S3_LAKEHOUSE_PREFIX_ROOT>/raw/cnpj/_manifests/conversao/ano_mes=<YYYY-MM>/manifest.json
+```
+
+### Retomada
+
+A conversao e retomavel e pode ser reexecutada a vontade. Antes de converter cada arquivo o comando verifica se o Parquet de destino ja existe no bucket e, se existir, pula o arquivo. O manifest e regravado a cada arquivo, entao uma execucao interrompida no meio nao perde o progresso ja feito. Cada entrada registra `status` (`ok`, `pulado` ou `falha`), `linhas`, `origem_bytes`, `destino_bytes` e `erro`:
+
+```json
+{
+  "ano_mes": "2026-08",
+  "arquivos_ok": 37,
+  "arquivos_falha": 0,
+  "arquivos_pulados": 2,
+  "linhas_totais": 61234567,
+  "arquivos": [
+    {
+      "dataset": "estabelecimentos",
+      "origem": "s3://bucket/raw/cnpj/ano_mes=2026-08/unzipped/K3241.K03200Y3.D60808.ESTABELE",
+      "destino": "s3://bucket/lakehouse/raw/cnpj/estabelecimentos/ano_mes=2026-08/K3241.K03200Y3.D60808.ESTABELE.parquet",
+      "status": "ok",
+      "linhas": 4200000,
+      "origem_bytes": 2147483648,
+      "destino_bytes": 536870912,
+      "erro": null
+    }
+  ]
+}
+```
+
+Uma falha em um arquivo nao aborta o lote: o erro e registrado no manifest, os demais arquivos seguem sendo convertidos e o comando termina com codigo de saida 1. Use `--force` para reconverter tudo, ignorando o que ja existe no bucket.
+
+O progresso e mostrado arquivo a arquivo no terminal:
+
+```text
+Origem: 37 CSVs em s3://bucket/raw/cnpj/ano_mes=2026-08/unzipped/
+[3/37] K3241.K03200Y3.D60808.ESTABELE: convertendo (2.0 GB)
+[3/37] K3241.K03200Y3.D60808.ESTABELE: convertido, 4.2M linhas, 512.0 MB enviado
+[4/37] K3241.K03200Y4.D60808.ESTABELE: ja convertido, pulado
+```
+
+### MinIO e outros object storages compativeis
+
+O comando usa a extensao `httpfs` do DuckDB para ler o CSV e gravar o Parquet direto no object storage, sem passar por disco. Disco local so e usado em dois casos, sempre limpo ao fim de cada arquivo: o fallback de encoding quando o CSV nao e latin-1 valido, e a leitura dos `.zip`.
+
+Para MinIO, configure o endpoint, o path-style e o SSL no `.env`:
+
+```text
+S3_ENDPOINT_URL=http://localhost:9000
+S3_URL_STYLE=path
+S3_USE_SSL=false
+```
+
+Ou passe direto na linha de comando:
+
+```bash
+python -m cnpj_pipeline.cli parquet-s3 \
+  --month 2026-08 \
+  --bucket meu-bucket \
+  --endpoint-url http://localhost:9000 \
+  --url-style path \
+  --no-ssl
+```
+
+Quando `S3_ENDPOINT_URL` esta definido, o path-style ja e o padrao e o SSL segue o esquema do endpoint. As mesmas opcoes valem para o comando `s3` de ingestao.
+
+### Container da conversao
+
+A conversao tambem roda em container, recebendo apenas a competencia. Toda a
+configuracao de acesso vem por variavel de ambiente.
+
+```bash
+docker build -f docker/Dockerfile -t cnpj-parquet-s3:latest .
+```
+
+Crie um arquivo de ambiente (o mesmo conteudo do `.env`, sem aspas):
+
+```text
+S3_BUCKET_NAME=meu-bucket
+S3_PREFIX_ROOT=raw/cnpj
+S3_LAKEHOUSE_PREFIX_ROOT=lakehouse
+S3_ENDPOINT_URL=https://meu-endpoint
+S3_URL_STYLE=path
+S3_USE_SSL=true
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+E rode passando a competencia:
+
+```bash
+docker run --rm --env-file s3.env cnpj-parquet-s3:latest 2026-09
+```
+
+A competencia tambem pode vir por variavel, sem argumento posicional:
+
+```bash
+docker run --rm --env-file s3.env -e CNPJ_TARGET_MONTH=2026-09 cnpj-parquet-s3:latest
+```
+
+O progresso sai em tempo real no stdout do container, uma linha por arquivo,
+igual a execucao local. Qualquer flag extra do comando e repassada:
+
+```bash
+docker run --rm --env-file s3.env cnpj-parquet-s3:latest 2026-09 --force
+```
+
+Codigos de saida: `0` sucesso, `1` quando algum arquivo falhou na conversao,
+`2` para erro de uso (competencia ausente ou fora do formato `YYYY-MM`,
+`S3_BUCKET_NAME` nao definido).
+
+#### Disco e memoria
+
+Lendo a partir dos `.zip`, o container extrai um CSV por vez para o diretorio
+temporario e apaga antes do proximo. O pico e o maior par zip + CSV da
+competencia, em torno de 10 GB para `Estabelecimentos0`. Monte um volume em
+`/tmp` para nao encher a camada de escrita do container:
+
+```bash
+docker run --rm --env-file s3.env \
+  -v cnpj-tmp:/tmp \
+  --memory 4g \
+  cnpj-parquet-s3:latest 2026-09
+```
+
+Lendo a partir de `unzipped/`, o caminho rapido dispensa disco: o DuckDB le o
+CSV direto do object storage e grava o Parquet de volta, sem passar por `/tmp`.
+
+A imagem roda como usuario sem privilegios (uid 10001) e ja traz a extensao
+`httpfs` do DuckDB embutida, entao nao baixa extensao em tempo de execucao.
 
 Dominios complementares do Serpro:
 
@@ -248,3 +398,4 @@ Principais conclusoes:
 5. Criar snapshots SCD Tipo 2 depois de carregar pelo menos duas competencias.
 6. Criar DAGs no Airflow para download, validacao, carga raw, transformacao dbt e publicacao de artefatos.
 7. Decidir depois a estrategia de hospedagem em nuvem e object storage.
+8. Apontar os modelos dbt para os Parquets no S3, alem dos locais.
