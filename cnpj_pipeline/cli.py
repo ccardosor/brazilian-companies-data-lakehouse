@@ -16,6 +16,22 @@ DEFAULT_BASE_URL = (
 )
 
 
+def _imprimir(mensagem: str) -> None:
+    """Escreve o progresso com flush.
+
+    Sem isso, com a saida redirecionada para arquivo o Python acumula os prints
+    em blocos e o log fica vazio por varios minutos durante a conversao.
+    """
+    print(mensagem, flush=True)
+
+
+def _env_bool(nome: str, padrao: bool | None = None) -> bool | None:
+    valor = os.getenv(nome)
+    if valor is None or valor.strip() == "":
+        return padrao
+    return valor.strip().lower() in {"1", "true", "t", "yes", "y", "sim"}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Ingere arquivos de CNPJ da Receita Federal."
@@ -51,6 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
     s3.add_argument("--region", default=os.getenv("AWS_REGION"))
     s3.add_argument("--endpoint-url", default=os.getenv("S3_ENDPOINT_URL"))
     s3.add_argument(
+        "--url-style",
+        choices=("path", "vhost"),
+        default=os.getenv("S3_URL_STYLE"),
+        help="Estilo de URL do object storage. MinIO exige path.",
+    )
+    s3.add_argument(
+        "--no-ssl",
+        action="store_true",
+        help="Desliga SSL na conexao com o object storage.",
+    )
+    s3.add_argument(
         "--spool-dir",
         default=None,
         help="Diretorio temporario local opcional para os arquivos zip baixados.",
@@ -76,6 +103,37 @@ def build_parser() -> argparse.ArgumentParser:
         "--lakehouse-dir",
         default=os.getenv("LOCAL_LAKEHOUSE_DIR", "./downloads/lakehouse"),
         help="Raiz local do lakehouse usada para gravar os Parquets raw/cnpj.",
+    )
+
+    parquet_s3 = subparsers.add_parser(
+        "parquet-s3",
+        help="Converte os CSVs brutos ja enviados ao S3 para Parquet no S3.",
+    )
+    parquet_s3.add_argument("--month", default=argparse.SUPPRESS)
+    parquet_s3.add_argument("--force", action="store_true", default=argparse.SUPPRESS)
+    parquet_s3.add_argument("--bucket", default=os.getenv("S3_BUCKET_NAME"))
+    parquet_s3.add_argument(
+        "--prefix-root",
+        default=os.getenv("S3_PREFIX_ROOT", "raw/cnpj"),
+        help="Prefixo da ingestao, onde estao os arquivos brutos da competencia.",
+    )
+    parquet_s3.add_argument(
+        "--lakehouse-prefix",
+        default=os.getenv("S3_LAKEHOUSE_PREFIX_ROOT", "lakehouse"),
+        help="Prefixo do lakehouse no bucket, onde os Parquets sao gravados.",
+    )
+    parquet_s3.add_argument("--region", default=os.getenv("AWS_REGION"))
+    parquet_s3.add_argument("--endpoint-url", default=os.getenv("S3_ENDPOINT_URL"))
+    parquet_s3.add_argument(
+        "--url-style",
+        choices=("path", "vhost"),
+        default=os.getenv("S3_URL_STYLE"),
+        help="Estilo de URL do object storage. MinIO exige path.",
+    )
+    parquet_s3.add_argument(
+        "--no-ssl",
+        action="store_true",
+        help="Desliga SSL na conexao com o object storage.",
     )
 
     serpro = subparsers.add_parser(
@@ -159,6 +217,50 @@ def main() -> None:
         print(f"Lakehouse local: {Path(args.lakehouse_dir)}")
         return
 
+    if args.destination == "parquet-s3":
+        if not args.month:
+            raise SystemExit(
+                "CNPJ_TARGET_MONTH ou --month e obrigatorio para conversao no S3."
+            )
+        if not args.bucket:
+            raise SystemExit(
+                "S3_BUCKET_NAME ou --bucket e obrigatorio para conversao no S3."
+            )
+
+        from cnpj_pipeline.parquet_s3 import converter_csvs_s3_para_parquet
+
+        sink = S3Sink(
+            bucket_name=args.bucket,
+            prefix_root=args.prefix_root,
+            region_name=args.region,
+            endpoint_url=args.endpoint_url,
+            url_style=args.url_style,
+            use_ssl=False if args.no_ssl else _env_bool("S3_USE_SSL"),
+        )
+        sink.check_access()
+
+        resultados = converter_csvs_s3_para_parquet(
+            sink=sink,
+            month=args.month,
+            lakehouse_prefix=args.lakehouse_prefix,
+            force=args.force,
+            progress_callback=print,
+        )
+        convertidos = [item for item in resultados if item.status == "ok"]
+        pulados = [item for item in resultados if item.status == "pulado"]
+        falhas = [item for item in resultados if item.status == "falha"]
+        print(f"Arquivos convertidos: {len(convertidos)}")
+        print(f"Arquivos pulados: {len(pulados)}")
+        print(f"Arquivos com falha: {len(falhas)}")
+        for item in falhas:
+            print(f"  falha em {item.origem}: {item.erro}")
+        prefixo = (args.lakehouse_prefix or "").strip("/")
+        raiz = f"{prefixo}/raw/cnpj" if prefixo else "raw/cnpj"
+        print(f"Lakehouse S3: s3://{args.bucket}/{raiz}")
+        if falhas:
+            raise SystemExit(1)
+        return
+
     if args.destination == "serpro-dominios":
         from cnpj_pipeline.serpro import (
             SerproDomainSource,
@@ -205,6 +307,8 @@ def main() -> None:
         prefix_root=args.prefix_root,
         region_name=args.region,
         endpoint_url=args.endpoint_url,
+        url_style=args.url_style,
+        use_ssl=False if args.no_ssl else _env_bool("S3_USE_SSL"),
     )
     sink.check_access()
 
