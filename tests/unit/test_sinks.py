@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import unittest
@@ -28,12 +29,37 @@ class ClienteS3Fake:
     def put_object(self, Bucket: str, Key: str, Body: bytes) -> None:
         self.objects[(Bucket, Key)] = Body
 
-    def head_object(self, Bucket: str, Key: str) -> None:
+    def head_object(self, Bucket: str, Key: str) -> dict:
         if (Bucket, Key) not in self.objects:
             raise ErroS3Fake(404)
+        return {"ContentLength": len(self.objects[(Bucket, Key)])}
 
     def head_bucket(self, Bucket: str) -> None:
         self.head_bucket_calls.append(Bucket)
+
+    def get_object(self, Bucket: str, Key: str) -> dict:
+        if (Bucket, Key) not in self.objects:
+            raise ErroS3Fake(404)
+        return {"Body": io.BytesIO(self.objects[(Bucket, Key)])}
+
+    def list_objects_v2(
+        self,
+        Bucket: str,
+        Prefix: str = "",
+        ContinuationToken: str | None = None,
+    ) -> dict:
+        chaves = sorted(
+            chave
+            for bucket, chave in self.objects
+            if bucket == Bucket and chave.startswith(Prefix)
+        )
+        # Devolve uma chave por pagina para exercitar a paginacao.
+        inicio = int(ContinuationToken or 0)
+        return {
+            "Contents": [{"Key": chave} for chave in chaves[inicio : inicio + 1]],
+            "IsTruncated": inicio + 1 < len(chaves),
+            "NextContinuationToken": str(inicio + 1),
+        }
 
 
 def criar_zip(path: Path) -> None:
@@ -124,6 +150,82 @@ class S3SinkTest(unittest.TestCase):
         )
         sink.check_access()
         self.assertEqual(cliente.head_bucket_calls, ["bucket"])
+
+
+class S3SinkObjectStorageTest(unittest.TestCase):
+    def test_lista_chaves_seguindo_a_paginacao(self) -> None:
+        cliente = ClienteS3Fake()
+        for indice in range(3):
+            chave = f"raw/cnpj/unzipped/arquivo_{indice}.csv"
+            cliente.objects[("bucket", chave)] = b""
+        cliente.objects[("bucket", "raw/cnpj/zipped/Amostra.zip")] = b""
+
+        sink = S3Sink("bucket", "raw/cnpj", client=cliente)
+
+        self.assertEqual(
+            sink.list_keys("raw/cnpj/unzipped/"),
+            [
+                "raw/cnpj/unzipped/arquivo_0.csv",
+                "raw/cnpj/unzipped/arquivo_1.csv",
+                "raw/cnpj/unzipped/arquivo_2.csv",
+            ],
+        )
+
+    def test_le_tamanho_e_conteudo_de_objeto(self) -> None:
+        cliente = ClienteS3Fake()
+        cliente.objects[("bucket", "raw/cnpj/arquivo.csv")] = b"abc"
+        sink = S3Sink("bucket", "raw/cnpj", client=cliente)
+
+        self.assertEqual(sink.object_size("raw/cnpj/arquivo.csv"), 3)
+        self.assertEqual(sink.get_bytes("raw/cnpj/arquivo.csv"), b"abc")
+        self.assertIsNone(sink.object_size("raw/cnpj/ausente.csv"))
+        self.assertIsNone(sink.get_bytes("raw/cnpj/ausente.csv"))
+        self.assertEqual(
+            sink.s3_uri("raw/cnpj/arquivo.csv"), "s3://bucket/raw/cnpj/arquivo.csv"
+        )
+        self.assertEqual(
+            sink.zipped_prefix("2026-08"), "raw/cnpj/ano_mes=2026-08/zipped/"
+        )
+
+    def test_configuracao_duckdb_para_minio(self) -> None:
+        sink = S3Sink(
+            "bucket",
+            "raw/cnpj",
+            region_name="us-east-1",
+            endpoint_url="http://localhost:9000",
+            client=ClienteS3Fake(),
+        )
+
+        configuracao = sink.duckdb_config()
+
+        self.assertEqual(sink.url_style, "path")
+        self.assertFalse(sink.use_ssl)
+        self.assertEqual(configuracao["s3_endpoint"], "localhost:9000")
+        self.assertEqual(configuracao["s3_url_style"], "path")
+        self.assertIs(configuracao["s3_use_ssl"], False)
+        self.assertEqual(configuracao["s3_region"], "us-east-1")
+
+    def test_configuracao_duckdb_para_aws_por_padrao(self) -> None:
+        sink = S3Sink("bucket", "raw/cnpj", client=ClienteS3Fake())
+
+        configuracao = sink.duckdb_config()
+
+        self.assertEqual(sink.url_style, "vhost")
+        self.assertTrue(sink.use_ssl)
+        self.assertNotIn("s3_endpoint", configuracao)
+
+    def test_url_style_e_ssl_explicitos_vencem_a_inferencia(self) -> None:
+        sink = S3Sink(
+            "bucket",
+            "raw/cnpj",
+            endpoint_url="https://minio.interno:9000",
+            url_style="vhost",
+            use_ssl=False,
+            client=ClienteS3Fake(),
+        )
+
+        self.assertEqual(sink.url_style, "vhost")
+        self.assertFalse(sink.use_ssl)
 
 
 if __name__ == "__main__":
