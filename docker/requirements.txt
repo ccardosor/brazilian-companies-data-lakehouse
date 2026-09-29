@@ -1,0 +1,7 @@
+# Dependencias apenas da conversao. O dbt-duckdb fica de fora: o container so
+# converte CSV para Parquet, nao roda transformacao.
+boto3>=1.34.0
+botocore>=1.34.0
+duckdb>=1.0.0
+python-dotenv>=1.0.0
+requests>=2.31.0

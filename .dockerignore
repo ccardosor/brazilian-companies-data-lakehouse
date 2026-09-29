@@ -1,0 +1,15 @@
+downloads/
+target/
+logs/
+.venv/
+.git/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.duckdb
+*.duckdb.wal
+*.log
+.env
+docs/
+models/
+macros/
