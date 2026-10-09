@@ -35,10 +35,10 @@ models:
       - name: situacao_cadastral
       - name: identificador_matriz_filial
 
-  - name: fct_estabelecimentos_por_uf_cnae
-    description: Agregado mensal de estabelecimentos por UF, municipio e CNAE principal.
+  - name: fct_estabelecimentos_por_local_setor
+    description: Agregado mensal de estabelecimentos por UF, municipio e CNAE principal, incluindo todas as situacoes cadastrais.
     columns:
-      - name: chave_estabelecimentos_por_uf_cnae
+      - name: chave_estabelecimentos_por_local_setor
         tests:
           - not_null
           - unique
@@ -49,9 +49,11 @@ models:
         tests:
           - not_null
       - name: quantidade_empresas
+        description: Empresas distintas no recorte de localidade e setor; nao e uma metrica aditiva entre recortes.
         tests:
           - not_null
       - name: quantidade_estabelecimentos_ativos
+        description: Estabelecimentos com situacao cadastral igual a 02 no snapshot mensal.
         tests:
           - not_null
 

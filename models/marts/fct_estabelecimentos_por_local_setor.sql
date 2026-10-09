@@ -2,7 +2,7 @@ select
     estabelecimentos.ano_mes || '-' || coalesce(estabelecimentos.uf, 'sem_uf')
         || '-' || coalesce(estabelecimentos.municipio, 'sem_municipio')
         || '-' || coalesce(estabelecimentos.cnae_fiscal_principal, 'sem_cnae')
-        as chave_estabelecimentos_por_uf_cnae,
+        as chave_estabelecimentos_por_local_setor,
     estabelecimentos.ano_mes,
     estabelecimentos.uf,
     estabelecimentos.municipio,
