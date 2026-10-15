@@ -57,6 +57,52 @@ models:
         tests:
           - not_null
 
+  - name: fct_aberturas_estabelecimentos_por_local
+    description: Agregado por competencia observada e mes de inicio de atividade, com recorte de UF e municipio.
+    columns:
+      - name: chave_aberturas_estabelecimentos_por_local
+        tests:
+          - not_null
+          - unique
+      - name: ano_mes_referencia
+        description: Competencia do snapshot da Receita que contem os estabelecimentos agregados.
+        tests:
+          - not_null
+      - name: mes_inicio_atividade
+        description: Mes derivado da data de inicio de atividade do estabelecimento.
+        tests:
+          - not_null
+      - name: quantidade_estabelecimentos_iniciados
+        tests:
+          - not_null
+      - name: quantidade_empresas_distintas_com_inicio
+        description: Empresas distintas com ao menos um estabelecimento iniciado no recorte; nao equivale necessariamente a empresas abertas.
+        tests:
+          - not_null
+
+  - name: fct_aberturas_estabelecimentos_por_uf_setor
+    description: Agregado por competencia observada e mes de inicio de atividade, com recorte de UF e CNAE principal.
+    columns:
+      - name: chave_aberturas_estabelecimentos_por_uf_setor
+        tests:
+          - not_null
+          - unique
+      - name: ano_mes_referencia
+        description: Competencia do snapshot da Receita que contem os estabelecimentos agregados.
+        tests:
+          - not_null
+      - name: mes_inicio_atividade
+        description: Mes derivado da data de inicio de atividade do estabelecimento.
+        tests:
+          - not_null
+      - name: quantidade_estabelecimentos_iniciados
+        tests:
+          - not_null
+      - name: quantidade_empresas_distintas_com_inicio
+        description: Empresas distintas com ao menos um estabelecimento iniciado no recorte; nao equivale necessariamente a empresas abertas.
+        tests:
+          - not_null
+
   - name: dim_paises
     description: Dimensao local de paises, enriquecida com codigo_pais, descricao_pais e dataset_origem.
     columns:

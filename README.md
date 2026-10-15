@@ -190,6 +190,8 @@ Os modelos staging leem os Parquets diretamente de `downloads/lakehouse/raw/cnpj
 
 O mart `fct_estabelecimentos_por_local_setor` materializa um agregado mensal por UF, municipio e CNAE principal. Ele disponibiliza quantidades de estabelecimentos, empresas distintas, estabelecimentos ativos, matrizes e filiais para consumo analitico.
 
+Os marts `fct_aberturas_estabelecimentos_por_local` e `fct_aberturas_estabelecimentos_por_uf_setor` analisam inicios de atividade presentes em cada competencia observada. O primeiro permite recortes por municipio; o segundo, por UF e CNAE principal.
+
 A conversao tambem grava um manifest JSON em `downloads/lakehouse/raw/cnpj/_manifests/conversao/ano_mes=<YYYY-MM>/manifest.json`.
 
 ## Convencoes de trabalho
